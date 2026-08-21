@@ -60,7 +60,7 @@
     max-width: 100%;
     overflow: auto;
   }
-  #frameImg { max-width: 100%; display: block; border-radius: 8px; cursor: crosshair; user-select: none; }
+  #frameImg { max-width: 100%; display: block; border-radius: 8px; cursor: crosshair; user-select: none; touch-action: none; }
   #selBox {
     position: absolute;
     border: 2px solid var(--accent);
@@ -174,30 +174,38 @@ async function handleFile(file) {
   }
 }
 
-frameImg.addEventListener('mousedown', e => {
+function pointFromEvent(e) {
   const rect = frameImg.getBoundingClientRect();
-  startX = e.clientX - rect.left;
-  startY = e.clientY - rect.top;
+  const p = e.touches && e.touches.length ? e.touches[0] : e;
+  return { x: p.clientX - rect.left, y: p.clientY - rect.top };
+}
+
+function dragStart(e) {
+  e.preventDefault();
+  const pt = pointFromEvent(e);
+  startX = pt.x;
+  startY = pt.y;
   dragging = true;
   selBox.style.display = 'block';
   selBox.style.left = startX + 'px';
   selBox.style.top = startY + 'px';
   selBox.style.width = '0px';
   selBox.style.height = '0px';
-});
-frameImg.addEventListener('mousemove', e => {
+}
+
+function dragMove(e) {
   if (!dragging) return;
-  const rect = frameImg.getBoundingClientRect();
-  const curX = e.clientX - rect.left;
-  const curY = e.clientY - rect.top;
-  const left = Math.min(startX, curX), top = Math.min(startY, curY);
-  const w = Math.abs(curX - startX), h = Math.abs(curY - startY);
+  e.preventDefault();
+  const pt = pointFromEvent(e);
+  const left = Math.min(startX, pt.x), top = Math.min(startY, pt.y);
+  const w = Math.abs(pt.x - startX), h = Math.abs(pt.y - startY);
   selBox.style.left = left + 'px';
   selBox.style.top = top + 'px';
   selBox.style.width = w + 'px';
   selBox.style.height = h + 'px';
-});
-window.addEventListener('mouseup', () => {
+}
+
+function dragEnd() {
   if (!dragging) return;
   dragging = false;
   const scaleX = realW / frameImg.clientWidth;
@@ -216,7 +224,16 @@ window.addEventListener('mouseup', () => {
     processBtn.disabled = false;
     setStatus('Region selected. Ready to process.');
   }
-});
+}
+
+frameImg.addEventListener('mousedown', dragStart);
+frameImg.addEventListener('mousemove', dragMove);
+window.addEventListener('mouseup', dragEnd);
+
+frameImg.addEventListener('touchstart', dragStart, { passive: false });
+frameImg.addEventListener('touchmove', dragMove, { passive: false });
+window.addEventListener('touchend', dragEnd);
+window.addEventListener('touchcancel', dragEnd);
 
 processBtn.addEventListener('click', async () => {
   if (!jobId || !region) return;
